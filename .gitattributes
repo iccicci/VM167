@@ -1,0 +1,4 @@
+* text eol=crlf
+*.dll binary
+*.ico binary
+*.suo binary
