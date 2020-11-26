@@ -48,6 +48,7 @@ public:
 	int    offNumber;
 	int    onCard;
 	int    onNumber;
+	string script;
 	string wrongOff;
 	string wrongOn;
 
@@ -78,16 +79,16 @@ class logic::Logic
 
 private:
 
-	bool           connectionError;
-	int            devs;
-	float          fontSize;
-	string         lines;
-	bool           logError;
-	vector<string> logLines;
-	unsigned int   maxLogLines;
-	bool           newLogs;
-	string         script;
-	long long      state[NUM_CARDS][NUM_ANALOG + NUM_DIGITAL];
+	bool            connectionError;
+	int             devs;
+	float           fontSize;
+	string          lines;
+	long long       lastButton;
+	bool            logError;
+	vector<string>  logLines;
+	unsigned int    maxLogLines;
+	long long       state[NUM_CARDS][NUM_ANALOG + NUM_DIGITAL];
+	struct TickInfo tickInfo;
 
 	CardConfiguration cards[NUM_CARDS];
 
@@ -97,9 +98,10 @@ private:
 	{
 		connectionError = false;
 		fontSize = 10;
+		lastButton = 0;
 		logError = false;
 		maxLogLines = 1000;
-		newLogs = false;
+		tickInfo.button = 0;
 
 		ZeroMemory(state, sizeof(state));
 	}
@@ -120,13 +122,13 @@ private:
 
 					if (port.hasOn && port.onCard != l + 1)
 					{
-						log(string("*** Ignorata configurazione 'On = O") + to_string(port.onCard) + to_string(port.onNumber) + "' per la porta D" + to_string(l + 1) + to_string(i + 1));
+						log(string("*** Ignorata configurazione 'On = O") + to_string(port.onCard) + to_string(port.onNumber) + "' per la porta D" + to_string(l + 1) + to_string(i + 1) + " per assenza scheda");
 						port.hasOn = false;
 					}
 
 					if (port.hasOff && port.offCard != l + 1)
 					{
-						log(string("*** Ignorata configurazione 'Off = O") + to_string(port.offCard) + to_string(port.offNumber) + "' per la porta D" + to_string(l + 1) + to_string(i + 1));
+						log(string("*** Ignorata configurazione 'Off = O") + to_string(port.offCard) + to_string(port.offNumber) + "' per la porta D" + to_string(l + 1) + to_string(i + 1) + " per assenza scheda");
 						port.hasOff = false;
 					}
 				}
@@ -158,7 +160,7 @@ private:
 
 					if (!port.configured) continue;
 
-					log(string("*** Ignorata configurazione porta D") + to_string(l + 1) + to_string(i + 1));
+					log(string("*** Ignorata configurazione porta D") + to_string(l + 1) + to_string(i + 1) + " per assenza scheda");
 					port.configured = false;
 				}
 
@@ -168,10 +170,29 @@ private:
 
 					if (!port.configured || port.label == "" || port.wrongOn != "" || port.wrongOff != "") continue;
 
-					log(string("*** Ignorata configurazione porta A") = to_string(l + 1) + to_string(i + 1));
+					log(string("*** Ignorata configurazione porta A") + to_string(l + 1) + to_string(i + 1) + " per assenza scheda");
 					port.configured = false;
 				}
 			}
+		}
+	}
+
+	void clearScreen(int buttonId)
+	{
+		long long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+
+		if (buttonId == 3)
+		{
+			log("Cancellato log a schermo");
+			lastButton = 0;
+			logLines.clear();
+			tickInfo.button = 0;
+			tickInfo.log = "";
+		}
+		else
+		{
+			tickInfo.button = buttonId + 1;
+			lastButton = now;
 		}
 	}
 
@@ -226,7 +247,6 @@ private:
 
 		fontSize = (float)ini.GetLongValue("LOG", "DimensioneCarattere", 10);
 		maxLogLines = ini.GetLongValue("LOG", "MassimoLinee", 1000);
-		script = ini.GetValue("SCRIPT", "NomeFile", "");
 
 		CSimpleIniCaseA::TNamesDepend sections;
 
@@ -243,7 +263,6 @@ private:
 			const char*        value;
 
 			if (!strcmp(name, "LOG")) continue;
-			if (!strcmp(name, "SCRIPT")) continue;
 
 			if (!isPortName(name, type, card, number))
 			{
@@ -264,6 +283,7 @@ private:
 
 			port->configured = true;
 			port->label = ini.GetValue(name, "Label", "");
+			port->script = ini.GetValue(name, "Script", "");
 
 			value = ini.GetValue(name, "On", "");
 			if (strcmp(value, ""))
@@ -304,9 +324,6 @@ private:
 		log(string("DimensioneCarattere = ") + to_string((int)fontSize));
 		log(string("MassimoLinee = ") + to_string(maxLogLines));
 		log("");
-		log("[SCRIPT]");
-		log(string("NomeFile = ") + script);
-		log("");
 		for (int l = 0; l < NUM_CARDS; ++l)
 		{
 			if (!cards[l].configured) continue;
@@ -319,6 +336,7 @@ private:
 
 				log(string("[D") + to_string(l + 1) + to_string(i + 1) + "]");
 				log(string("Label = ") + port.label);
+				log(string("Script = ") + port.script);
 
 				if (port.hasOn) log(string("On = O") + to_string(port.onCard) + to_string(port.onNumber));
 				if (port.hasOff) log(string("Off = O") + to_string(port.offCard) + to_string(port.offNumber));
@@ -334,6 +352,7 @@ private:
 
 				log(string("[A") + to_string(l + 1) + to_string(i + 1) + "]");
 				log(string("Label = ") + port.label);
+				log(string("Script = ") + port.script);
 
 				if (port.hasOn) log(string("On = O") + to_string(port.onCard) + to_string(port.onNumber));
 				if (port.hasOff) log(string("Off = O") + to_string(port.offCard) + to_string(port.offNumber));
@@ -343,8 +362,6 @@ private:
 		}
 		log("");
 		log("*** Fine configurazione");
-
-		if (script == "") log("*** Nessuno script configurato");
 
 		for (auto i = wrongSections.begin(); i != wrongSections.end(); ++i) log(string("*** Sezione sconosciuta: ") + *i);
 
@@ -459,14 +476,6 @@ private:
 		struct tm tstruct;
 		char      dateTime[80];
 
-		lines = "";
-		newLogs = true;
-
-		if (!strcmp(line, "15"))
-		{
-			dateTime[0] = 0;
-		}
-
 		localtime_s(&tstruct, &now);
 
 		strftime(dateTime, sizeof(dateTime), "%Y-%m-%d %X - ", &tstruct);
@@ -493,6 +502,7 @@ private:
 			fclose(fp);
 		}
 
+		lines = "";
 		logLines.push_back(finalLine);
 		while (logLines.size() > maxLogLines) logLines.erase(logLines.begin());
 
@@ -502,11 +512,13 @@ private:
 
 			lines += *i;
 		}
+
+		tickInfo.log = lines.c_str();
 	}
 
-	void subProcess(string& who)
+	void subProcess(PortConfiguration& port)
 	{
-		if (script == "") return;
+		if (port.script == "") return;
 
 		char         commandLine[1000];
 		time_t       now = time(0);
@@ -521,11 +533,11 @@ private:
 		si.cb = sizeof(si);
 		localtime_s(&tstruct, &now);
 		strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %X", &tstruct);
-		strcpy_s(commandLine, (script + " \"" + who + "\" \"" + timestamp + "\"").c_str());
+		strcpy_s(commandLine, (port.script + " \"" + port.label + "\" \"" + timestamp + "\"").c_str());
 
 		if (!CreateProcessA(NULL, commandLine, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
 		{
-			log(script + ": Errore");
+			log(port.script + ": Errore");
 
 			return;
 		}
@@ -580,7 +592,7 @@ private:
 						{
 							status = -1;
 							log(port.label);
-							subProcess(port.label);
+							subProcess(port);
 
 							if (port.hasOn) SetPWM(port.onCard - 1, port.onNumber, 255, 2);
 							if (port.hasOff) SetPWM(port.offCard - 1, port.offNumber, 0, 2);
@@ -612,7 +624,7 @@ private:
 						{
 							status = -1;
 							log(port.label);
-							subProcess(port.label);
+							subProcess(port);
 
 							if (port.hasOn) SetPWM(port.onCard - 1, port.onNumber, 255, 2);
 							if (port.hasOff) SetPWM(port.offCard - 1, port.offNumber, 0, 2);
@@ -622,6 +634,8 @@ private:
 				else status = 0;
 			}
 		}
+
+		if (lastButton && now - lastButton > 1000) lastButton = tickInfo.button = 0;
 	}
 
 	void waitSubProcesses()
@@ -655,6 +669,11 @@ LogicInterface::~LogicInterface()
 	delete logic;
 }
 
+void logic::LogicInterface::clearScreen(int buttonId)
+{
+	logic->clearScreen(buttonId);
+}
+
 System::Boolean LogicInterface::connect()
 {
 	return logic->connect();
@@ -670,16 +689,9 @@ System::Boolean LogicInterface::init()
 	return logic->init();
 }
 
-const char* LogicInterface::tick()
+struct TickInfo* LogicInterface::tick()
 {
 	logic->tick();
 
-	if (logic->newLogs)
-	{
-		logic->newLogs = false;
-
-		return logic->lines.c_str();
-	}
-
-	return nullptr;
+	return &logic->tickInfo;
 }

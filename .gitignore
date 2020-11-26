@@ -4,6 +4,7 @@ Release/.NETFramework,Version=v4.0.AssemblyAttributes.asm
 Release/.NETFramework,Version=v4.0.AssemblyAttributes.obj
 Release/app.res
 Release/AssemblyInfo.obj
+Release/logic.obj
 Release/stdafx.obj
 Release/vc141.pdb
 Release/VM167.exe

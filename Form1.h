@@ -2,7 +2,8 @@
 
 #include "logic.h"
 
-namespace VM167Demo {
+namespace VM167Demo
+{
 
 
 	using namespace System;
@@ -135,91 +136,19 @@ namespace VM167Demo {
 			this->Name = L"Form1";
 			this->Text = L"VM167";
 			this->Load += gcnew System::EventHandler(this, &Form1::Form1_Load);
-			this->FormClosed += gcnew System::Windows::Forms::FormClosedEventHandler(this, &Form1::Form1_FormClosed);
 			this->ResumeLayout(false);
 			this->PerformLayout();
 
 		}
 #pragma endregion
-				      
-				int CardAddress;
-				int HiNibble;
-				int LoNibble;
-				int Cards;
 
-				LogicInterface  Logic;
-				System::Boolean Ok;
-				System::Boolean Running;
+		LogicInterface  Logic;
+		System::Boolean Ok;
+		System::Boolean Running;
 
-				// Function prototypes to call from VM167.dll
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static int OpenDevices();
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void CloseDevices();
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static int ReadAnalogChannel(int CardAddress, int Channel);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void ReadAllAnalog(int CardAddress, int *Buffer);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void SetPWM(int CardAddress, int Channel, int Data, int Freq);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void OutputAllPWM(int CardAddress, int Data1, int Data2);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void OutputAllDigital(int CardAddress, int Data);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void ClearDigitalChannel(int CardAddress, int Channel);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void ClearAllDigital(int CardAddress);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void SetDigitalChannel(int CardAddress, int Channel);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void SetAllDigital(int CardAddress);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static bool ReadDigitalChannel(int CardAddress, int Channel);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				 static int ReadAllDigital(int CardAddress);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void InOutMode(int CardAddress, int HighNibble, int LowNibble);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static unsigned int ReadCounter(int CardAddress);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void ResetCounter(int CardAddress);
-								
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static int Connected();
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static int VersionFirmware(int CardAddress);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static int VersionDLL();
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				static void ReadBackPWMOut(int CardAddress, int *Buffer);
-
-				[DllImport("vm167.dll", CharSet=CharSet::Ansi)]
-				 static int ReadBackInOutMode(int CardAddress);
-
-	private: System::Void Button1_Click(System::Object^  sender, System::EventArgs^  e) {
-
-		}
-private: System::Void Form1_Load(System::Object^  sender, System::EventArgs^  e) 
-		 {
+	private:
+		System::Void Form1_Load(System::Object^  sender, System::EventArgs^  e)
+		{
 			Ok = Logic.init();
 
 			if (Ok)
@@ -227,38 +156,46 @@ private: System::Void Form1_Load(System::Object^  sender, System::EventArgs^  e)
 				Logic.connect();
 				logBox->Font = gcnew System::Drawing::Font(logBox->Font->FontFamily, Logic.getFontSize());
 			}
-		 }
-private: System::Void Form1_FormClosed(System::Object^  sender, System::Windows::Forms::FormClosedEventArgs^  e)
-		 {
-			CloseDevices();
-		 }
-private: System::Void Button2_Click(System::Object^  sender, System::EventArgs^  e) 
-		 {
-		 }
-private: System::Void Button3_Click(System::Object^  sender, System::EventArgs^  e) 
-		 {
-		 }
-private: System::Void Timer1_Tick(System::Object^  sender, System::EventArgs^  e)
-		 {
-	if (Running) return;
+		}
+		System::Void Button1_Click(System::Object^  sender, System::EventArgs^  e)
+		{
+			Logic.clearScreen(0);
+		}
+		System::Void Button2_Click(System::Object^  sender, System::EventArgs^  e)
+		{
+			Logic.clearScreen(1);
+		}
+		System::Void Button3_Click(System::Object^  sender, System::EventArgs^  e)
+		{
+			Logic.clearScreen(2);
+		}
+		System::Void Button4_Click(System::Object^  sender, System::EventArgs^  e)
+		{
+			Logic.clearScreen(3);
+		}
+		System::Void Timer1_Tick(System::Object^  sender, System::EventArgs^  e)
+		{
+			if (Running) return;
 
-	Running = true;
+			Running = true;
 
-	const char* logs = Logic.tick();
+			struct TickInfo* logs = Logic.tick();
 
-	if (logs != nullptr)
-	{
-		logBox->Text = gcnew String(logs);
-		logBox->SelectionStart = logBox->TextLength;
-		logBox->SelectionLength = 0;
-		logBox->ScrollToCaret();
-	}
+			if (logs->log != nullptr)
+			{
+				logBox->Text = gcnew String(logs->log);
+				logBox->SelectionStart = logBox->TextLength;
+				logBox->SelectionLength = 0;
+				logBox->ScrollToCaret();
+				logs->log = nullptr;
+			}
 
-	Running = false;
-}
-private: System::Void Button4_Click(System::Object^  sender, System::EventArgs^  e) 
-		 {
-		 }
+			Button1->Enabled = logs->button == 0;
+			Button2->Enabled = logs->button == 1;
+			Button3->Enabled = logs->button == 2;
+			Button4->Enabled = logs->button == 3;
+
+			Running = false;
+		}
 	};
 }
-
